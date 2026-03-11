@@ -1,0 +1,13 @@
+.App {
+    max-width: 800px;
+    margin: 0 auto;
+    font-family: 'Roboto', sans-serif;
+}
+
+.App-content {
+    margin: 0 20px;
+}
+
+.custom_class1{
+    margin:0;
+}

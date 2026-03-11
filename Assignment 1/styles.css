@@ -1,0 +1,429 @@
+/* =========================================
+   1. VARIABLES & CONFIGURATION
+   ========================================= */
+:root {
+    /* --- CORE PALETTE --- */
+    --bg-color: #050505;
+    --card-bg: #1a1a1a;
+    --card-border: rgba(255, 255, 255, 0.08);
+    
+    /* --- ACCENTS --- */
+    --accent-color: #00ff88; /* Neon Green */
+    --accent-secondary: #00c6fb; /* Cyan */
+    
+    /* --- TYPOGRAPHY --- */
+    --text-main: #e0e0e0;
+    --text-muted: #888;
+    
+    /* --- FONTS --- */
+    --font-art: 'Syne', sans-serif;
+    --font-serif: 'Playfair Display', serif; /* Elegant Serif for Italics */
+    --font-ui: 'Inter', sans-serif;
+    --font-code: 'Fira Code', monospace;
+    
+    /* --- VISUAL FX --- */
+    --holo-gradient: linear-gradient(135deg, #00c6fb 0%, #005bea 50%, #ff00cc 100%);
+    --card-shadow: 0 20px 50px rgba(0,0,0,0.5);
+}
+
+/* Import Elegant Serif Font */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,400;1,600&display=swap');
+
+/* =========================================
+   2. GLOBAL RESET & LAYERS
+   ========================================= */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    font-family: var(--font-ui);
+    height: 100vh;
+    overflow: hidden; /* Scroll handled by JS */
+    perspective: 1000px; /* Global 3D Context */
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 0.5s ease;
+}
+
+/* --- CANVAS LAYERS (Particles & Matrix) --- */
+canvas {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+}
+
+#particle-canvas { z-index: 1; opacity: 0.6; transition: opacity 0.5s; }
+#matrix-canvas { z-index: 2; opacity: 0; transition: opacity 1s ease; } /* Hidden by default */
+
+/* --- STATIC NOISE & SPOTLIGHT --- */
+.noise-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: url('data:image/svg+xml;utf8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)" opacity="0.04"/%3E%3C/svg%3E');
+    pointer-events: none; z-index: 0;
+}
+
+.cursor-spotlight {
+    position: fixed; width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.07) 0%, transparent 60%);
+    border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%);
+    z-index: 1; mix-blend-mode: screen; will-change: transform;
+}
+
+/* =========================================
+   3. HOLOGRAPHIC LOADER (ENTRANCE)
+   ========================================= */
+.loader-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: #000;
+    z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+    transition: opacity 0.5s ease, visibility 0.5s;
+}
+
+.scanner-bar {
+    position: absolute; top: 0; left: 0;
+    width: 2px; height: 100%;
+    background: var(--accent-color);
+    box-shadow: 0 0 50px var(--accent-color), 0 0 100px var(--accent-color);
+    opacity: 0;
+}
+
+.loading-text {
+    font-family: var(--font-code); color: var(--accent-color);
+    font-size: 0.8rem; letter-spacing: 5px; animation: blinkText 0.5s infinite;
+}
+
+/* Loading State Active */
+body.is-loading .loader-overlay { opacity: 1; visibility: visible; }
+body.is-loading .scanner-bar { animation: scanScreen 2.5s cubic-bezier(0.19, 1, 0.22, 1) forwards; opacity: 1; }
+/* Hide gallery initially */
+body.is-loading .gallery-container { opacity: 0; clip-path: inset(0 100% 0 0); transition: 0s; }
+
+/* Loading Complete (Revealed) */
+body:not(.is-loading) .loader-overlay { opacity: 0; visibility: hidden; }
+body:not(.is-loading) .gallery-container {
+    opacity: 1;
+    clip-path: inset(0 0 0 0); /* Wipe reveal */
+    transition: clip-path 1.5s cubic-bezier(0.19, 1, 0.22, 1), opacity 0.5s ease;
+}
+
+@keyframes scanScreen { 0% { left: 0; } 100% { left: 100%; } }
+@keyframes blinkText { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+/* =========================================
+   4. HEADER
+   ========================================= */
+.atelier-header {
+    position: fixed; top: 0; width: 100%; padding: 1.5rem 3rem;
+    display: flex; justify-content: space-between; align-items: center;
+    z-index: 100; border-bottom: 1px solid rgba(255,255,255,0.05);
+    background: rgba(5, 5, 5, 0.6); backdrop-filter: blur(10px);
+}
+.logo { font-family: var(--font-code); font-weight: 700; font-size: 1.2rem; letter-spacing: -1px; }
+.tag-symbol { color: #444; }
+.subtitle { font-family: var(--font-ui); font-weight: 300; font-size: 0.8rem; margin-left: 10px; opacity: 0.6; letter-spacing: 2px; }
+.status-indicator { font-size: 0.75rem; display: flex; align-items: center; gap: 8px; color: var(--text-muted); }
+.pulse { width: 6px; height: 6px; background-color: var(--accent-color); border-radius: 50%; box-shadow: 0 0 8px var(--accent-color); animation: pulseAnim 2s infinite; }
+
+@keyframes pulseAnim { 0% { opacity: 0.5; transform: scale(1); } 50% { opacity: 1; transform: scale(1.3); } 100% { opacity: 0.5; transform: scale(1); } }
+
+/* =========================================
+   5. GALLERY & WRAPPER
+   ========================================= */
+.gallery-container { position: relative; width: 100%; height: 100vh; overflow: hidden; z-index: 10; }
+.gallery-wrapper {
+    position: absolute; top: 0; left: 0; height: 100%;
+    display: flex; align-items: center;
+    padding-left: 15vw; padding-right: 15vw; gap: 6rem;
+    
+    /* OPTIMIZED FOR WARP DRIVE INERTIA */
+    transform-origin: center center; 
+    will-change: transform; 
+}
+
+/* =========================================
+   6. 3D CARD ARCHITECTURE & GLARE
+   ========================================= */
+.card-scene { width: 340px; height: 500px; flex-shrink: 0; perspective: 1200px; cursor: grab; position: relative; }
+
+.card-object {
+    width: 100%; height: 100%; position: relative; transform-style: preserve-3d; border-radius: 20px;
+    transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.card-object.is-flipped { transform: rotateY(180deg); }
+
+/* --- THE HYPER-REAL GLARE --- */
+.card-glare {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    border-radius: 20px;
+    z-index: 10;
+    pointer-events: none;
+    
+    /* The Light Beam */
+    background: linear-gradient(
+        125deg, 
+        rgba(255,255,255,0) 0%, 
+        rgba(255,255,255,0) 35%, 
+        rgba(255,255,255,0.15) 45%, /* The shine */
+        rgba(255,255,255,0) 55%, 
+        rgba(255,255,255,0) 100%
+    );
+    background-size: 300% 300%;
+    background-position: 0% 50%;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    mix-blend-mode: overlay;
+}
+
+.card-scene:hover .card-glare { opacity: 1; }
+
+/* =========================================
+   7. CARD FACES
+   ========================================= */
+.card-face {
+    /* STRICT POSITIONING TO FIX FLIP JUMP */
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    backface-visibility: hidden; border-radius: 20px; padding: 2.5rem;
+    display: flex; flex-direction: column; justify-content: space-between;
+    
+    /* Default Style */
+    background: linear-gradient(145deg, #1e1e1e, #111);
+    border: 1px solid var(--card-border);
+    box-shadow: var(--card-shadow), inset 0 0 0 1px rgba(255,255,255,0.03);
+    
+    /* FIX FOR TEXT OVERFLOW */
+    overflow: hidden; 
+}
+
+/* Front Face */
+.face-front { align-items: center; justify-content: center; position: relative; }
+.tag-badge { position: absolute; top: 2rem; left: 2rem; font-family: var(--font-code); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 50px; font-size: 0.8rem; }
+.interaction-hint { position: absolute; bottom: 2rem; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 2px; color: rgba(255,255,255,0.2); }
+
+/* Back Face */
+.face-back { transform: rotateY(180deg); background: #0a0a0a; border-color: var(--accent-color); text-align: left; }
+.header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+.face-back h3 { font-size: 1.2rem; font-weight: 600; color: #fff; }
+
+/* Badges */
+.badge { font-size: 0.6rem; text-transform: uppercase; padding: 4px 8px; border-radius: 4px; font-weight: 700; letter-spacing: 1px; }
+.badge.physical { background: rgba(0, 198, 251, 0.15); color: var(--accent-secondary); }
+.badge.semantic { background: rgba(0, 255, 136, 0.15); color: var(--accent-color); }
+.badge.functional { background: rgba(255, 0, 204, 0.15); color: #ff00cc; }
+.badge.typo { background: rgba(255, 165, 0, 0.15); color: orange; }
+
+.definition { font-size: 0.95rem; line-height: 1.6; color: #b0b0b0; margin-bottom: auto; }
+.code-block { background: #000; padding: 1rem; border-radius: 8px; border-left: 2px solid var(--accent-color); margin-top: 1.5rem; }
+.code-block code { font-family: var(--font-code); font-size: 0.8rem; color: var(--text-main); }
+
+/* =========================================
+   8. SMART FOCUS MODE (DIM OTHERS)
+   ========================================= */
+/* Logic: "If wrapper has a hovered card, select all cards that are NOT hovered and dim them" */
+.gallery-wrapper:has(.card-scene:hover) .card-scene:not(:hover) {
+    opacity: 0.4;
+    filter: blur(2px);
+    transform: scale(0.95);
+}
+
+/* Smooth transition for entry/exit */
+.card-scene {
+    transition: 
+        transform 0.6s cubic-bezier(0.23, 1, 0.32, 1),
+        opacity 0.5s ease,
+        filter 0.5s ease;
+}
+
+/* =========================================
+   9. LIVE EDITING & FONT DISTINCTION
+   ========================================= */
+.visual-preview {
+    font-family: var(--font-art); font-size: 3rem; font-weight: 800; text-align: center;
+    line-height: 1.2; width: 100%;
+    
+    /* OVERFLOW FIX */
+    overflow-wrap: break-word; word-break: break-word; white-space: pre-wrap;
+    padding: 0 10px;
+    
+    outline: none; cursor: text; transition: transform 0.2s ease, text-shadow 0.2s ease;
+    
+    /* Default Gradient */
+    color: transparent; background: var(--holo-gradient); -webkit-background-clip: text; background-clip: text;
+}
+
+/* Distinct Styles per Tag */
+.visual-preview b { font-weight: 900; letter-spacing: 1px; }
+.visual-preview strong { font-weight: 900; text-decoration: underline; text-decoration-color: var(--accent-color); text-decoration-thickness: 4px; }
+
+/* Distinct Serif for Italics */
+.visual-preview i { font-family: var(--font-serif); font-style: italic; font-weight: 400; background: none; -webkit-text-fill-color: #fff; color: #fff; }
+.visual-preview em { font-family: var(--font-serif); font-style: italic; font-weight: 600; letter-spacing: 2px; }
+
+.visual-preview mark { background: var(--accent-color); -webkit-text-fill-color: #000; color: #000; padding: 0 10px; border-radius: 4px; font-family: var(--font-code); font-size: 2rem; }
+.visual-preview small { font-size: 1.5rem; opacity: 0.7; font-weight: 400; background: none; -webkit-text-fill-color: #aaa; color: #aaa; }
+.visual-preview del { text-decoration: line-through; text-decoration-color: #ff0055; text-decoration-thickness: 5px; background: none; -webkit-text-fill-color: #888; color: #888; }
+.visual-preview sub, .visual-preview sup { font-size: 1.5rem; }
+
+/* Focus State (Blink Effect) */
+.visual-preview:focus {
+    transform: scale(1.05); caret-color: var(--accent-color);
+    text-shadow: 0 0 30px rgba(0, 255, 136, 0.4);
+    border-bottom: 2px solid var(--accent-color);
+    animation: blinkBorder 1.2s infinite;
+}
+@keyframes blinkBorder { 0%, 100% { border-bottom-color: var(--accent-color); } 50% { border-bottom-color: transparent; } }
+
+/* =========================================
+   10. FOOTER
+   ========================================= */
+.interaction-guide {
+    position: fixed; bottom: 0; left: 0; width: 100%;
+    display: flex; justify-content: center; gap: 3rem; padding: 2rem;
+    z-index: 100; background: linear-gradient(to top, rgba(5,5,5,1) 10%, transparent 100%);
+    pointer-events: none;
+}
+.guide-item { display: flex; align-items: center; gap: 10px; color: var(--text-muted); font-size: 0.75rem; letter-spacing: 1px; text-transform: uppercase; }
+.key-icon { font-size: 1.2rem; color: #fff; }
+
+/* =========================================
+   11. MODE: X-RAY (FIXED VISIBILITY)
+   ========================================= */
+body.x-ray-mode {
+    --card-bg: rgba(0, 5, 10, 0.95); /* Dark Opaque Background */
+    --card-border: rgba(0, 255, 255, 0.5); 
+    --text-main: #00ff88; 
+    --grid-color: rgba(0, 255, 255, 0.1); 
+}
+
+/* Base Card Style */
+body.x-ray-mode .card-face {
+    background-color: var(--card-bg);
+    background-image: 
+        linear-gradient(var(--grid-color) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+    background-size: 20px 20px;
+    border: 1px solid var(--card-border);
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.1);
+    transform-style: preserve-3d;
+}
+
+/* --- CRITICAL FIX: HIDE GHOST LAYERS --- */
+/* When looking at Front, hide Back completely */
+body.x-ray-mode .card-object:not(.is-flipped) .face-back { 
+    display: none; 
+}
+/* When looking at Back, hide Front completely */
+body.x-ray-mode .card-object.is-flipped .face-front { 
+    display: none; 
+}
+
+/* --- FRONT FACE STYLING --- */
+body.x-ray-mode .visual-preview {
+    -webkit-text-fill-color: #00FFFF !important; /* Force Cyan */
+    color: #00FFFF !important;
+    text-shadow: 0 0 15px rgba(0, 255, 255, 0.8); /* Strong Glow */
+    transform: translateZ(60px); 
+    opacity: 1 !important;
+}
+
+body.x-ray-mode .tag-badge {
+    background: #000; 
+    border-color: #00FFFF; 
+    color: #00FFFF;
+    transform: translateZ(80px);
+    box-shadow: 0 0 10px #00FFFF;
+}
+
+/* --- BACK FACE STYLING (THE FIX) --- */
+body.x-ray-mode .face-back h3 {
+    color: #00FFFF !important; /* Force Cyan Heading */
+    border-bottom: 1px dashed #00FFFF;
+    transform: translateZ(40px);
+}
+
+/* The Definition Text Fix */
+body.x-ray-mode .face-back .definition {
+    color: #00ff88 !important; /* FORCE NEON GREEN */
+    font-weight: 600 !important; /* Thicker text */
+    background: #000 !important; /* Solid Black Background Plate */
+    padding: 10px;
+    border: 1px solid #00ff88;
+    border-radius: 4px;
+    transform: translateZ(30px);
+    text-shadow: none;
+    opacity: 1 !important;
+}
+
+body.x-ray-mode .code-block {
+    background: #050505 !important;
+    border: 1px solid #00ff88;
+    transform: translateZ(50px);
+}
+
+body.x-ray-mode .code-block code {
+    color: #00ff88 !important;
+}
+
+/* --- ANNOTATIONS --- */
+body.x-ray-mode .card-scene::after {
+    content: "Z-DEPTH: 1200px"; 
+    position: absolute; bottom: -40px; left: 50%; transform: translateX(-50%);
+    font-family: var(--font-code); font-size: 0.6rem; color: #00FFFF; opacity: 0.7;
+}
+
+body.x-ray-mode .card-face::before {
+    content: "<div.card-face>"; 
+    position: absolute; top: -15px; right: 0;
+    font-family: var(--font-code); font-size: 0.7rem; color: #00ff88;
+    background: #000; padding: 2px 6px; transform: translateZ(100px); border: 1px solid #00ff88;
+}
+
+/* =========================================
+   12. MODE: MATRIX (EASTER EGG)
+   ========================================= */
+body.theme-matrix {
+    --bg-color: #000;
+    --card-bg: #000;
+    --card-border: #00FF41;
+    --text-main: #00FF41;
+    --accent-color: #00FF41;
+    --accent-secondary: #008F11;
+    --font-ui: 'Courier New', monospace;
+    --font-art: 'Courier New', monospace;
+    --holo-gradient: none;
+}
+
+body.theme-matrix .visual-preview {
+    background: none; -webkit-text-fill-color: #00FF41; text-shadow: 0 0 10px #00FF41; font-weight: 400;
+}
+body.theme-matrix .face-back { background: #000; border-color: #00FF41; }
+body.theme-matrix .noise-overlay { display: none; }
+body.theme-matrix #matrix-canvas { opacity: 1; } /* Show Rain */
+body.theme-matrix #particle-canvas { opacity: 0; } /* Hide normal particles */
+
+/* =========================================
+   13. MOBILE RESPONSIVENESS
+   ========================================= */
+@media (max-width: 768px) {
+    body { overflow: auto; height: auto; }
+    .gallery-container { height: auto; overflow: visible; opacity: 1 !important; clip-path: none !important; }
+    .gallery-wrapper { position: relative; flex-direction: column; height: auto; padding: 120px 0 50px 0; gap: 3rem; transform: none !important; }
+    .card-scene { width: 85%; height: 450px; margin: 0 auto; }
+    .interaction-guide, .cursor-spotlight, canvas { display: none; } /* Disable heavy FX */
+    .atelier-header { padding: 1rem; }
+    
+    /* Disable complex modes on mobile */
+    body.x-ray-mode .card-face { overflow: hidden; transform-style: flat; }
+    body.x-ray-mode .visual-preview { transform: none; }
+    
+    /* Disable focus mode on touch */
+    .gallery-wrapper:hover .card-scene { opacity: 1; filter: none; transform: none; }
+}
